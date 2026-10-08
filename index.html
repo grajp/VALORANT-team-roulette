@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>VALORANT カスタムチーム分け</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Teko:wght@500;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20261006_17">
+</head>
+
+<body>
+  <div class="lobby-container">
+    <header class="lobby-header">
+      <div class="logo-area">
+        <h1 class="main-title">VALORANT カスタムチーム分け</h1>
+      </div>
+    </header>
+
+    <section class="control-status-panel">
+      <div class="generate-action-group">
+        <button id="btnOptimizeTeams" class="btn btn-huge btn-accent">
+          チーム分けを行う
+        </button>
+
+        <div class="priority-setting-inline">
+          <label for="priorityMode">選考基準 :</label>
+          <select id="priorityMode">
+            <option value="balanced" selected>バランス重視</option>
+            <option value="rate_pure">ランク差重視</option>
+            <option value="role_pure">ロール差重視</option>
+          </select>
+        </div>
+
+        <button id="btnSwapTeams" class="btn btn-outline-cyan" title="攻守を入れ替える">
+          攻守交代
+        </button>
+
+        <button id="btnCopyDiscord" class="btn btn-outline-accent" title="組み合わせをコピーする">
+          📋 組み合わせをコピーする
+        </button>
+      </div>
+
+      <div id="patternBar" class="pattern-bar hidden">
+        <div class="pattern-label">候補 :</div>
+        <div id="patternTabsList" class="pattern-tabs">
+        </div>
+        <button id="btnOpenCompareModal" class="btn btn-xs btn-outline">
+          全パターン比較
+        </button>
+      </div>
+
+      <div class="balance-summary-bar" id="balanceSummaryBar">
+        <div class="summary-col col-atk-summary">
+          <span class="team-label text-attackers">アタッカー</span>
+          <div class="rank-display" id="attackerAvgDisplay">
+            <span class="empty-avg">-</span>
+          </div>
+        </div>
+
+        <div class="summary-col col-def-summary">
+          <span class="team-label text-defenders">ディフェンダー</span>
+          <div class="rank-display" id="defenderAvgDisplay">
+            <span class="empty-avg">-</span>
+          </div>
+        </div>
+
+        <div class="summary-col col-match-summary">
+          <div class="match-stat-row">
+            <span class="rate-diff-pill" id="rateDiffDisplay">レート差 : <strong>0 pt</strong></span>
+            <span class="role-match-pill" id="roleMatchDisplay">ロール適合度 : <strong>-</strong></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main class="lobby-board">
+      <div class="team-column column-attackers">
+        <div class="column-header header-attackers">
+          <h2>アタッカー</h2>
+          <span class="slot-count" id="countAttackers">0 / 5</span>
+        </div>
+        <div class="slots-container" id="slotsAttackers">
+        </div>
+      </div>
+
+      <div class="team-column column-defenders">
+        <div class="column-header header-defenders">
+          <h2>ディフェンダー</h2>
+          <span class="slot-count" id="countDefenders">0 / 5</span>
+        </div>
+        <div class="slots-container" id="slotsDefenders">
+        </div>
+      </div>
+
+      <div class="team-column column-spectators">
+        <div class="column-header header-spectators">
+          <h2>観戦者 (控え)</h2>
+          <span class="slot-count" id="countSpectators">0人</span>
+        </div>
+        <div class="spectator-container">
+          <div class="spectator-drop-zone" id="slotsSpectators">
+          </div>
+          <button id="btnAddSpectatorBtn" class="btn-add-spectator-slot">
+            + プレイヤーを追加
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <footer class="lobby-footer">
+      <div class="footer-guide">
+        <p style="margin-bottom: 12px;">本サイトは、Riot Gamesの「Legal Jibber Jabber」ポリシーに基づき、
+          VALORANT APIを使用して作成しています。
+          このサイトは <a href="https://x.com/ggraciejp" target="_blank" rel="noopener" style="color: #4bd5ff;">
+            grajp </a>が作成しています。</p>
+        <div>※ プレイヤーをドラッグ＆ドロップすることで自由に入れ替えできます。</div>
+        <div>※ 歯車をクリックすると実力補正を行うことができます。</div>
+      </div>
+      <div class="footer-actions">
+        <button id="btnQuickSample" class="btn btn-xs btn-ghost" title="テスト用">テスト用</button>
+        <button id="btnOpenBulkAdd" class="btn btn-xs btn-ghost" title="一括登録">一括登録</button>
+        <button id="btnExportData" class="btn btn-xs btn-ghost" title="保存">保存</button>
+        <button id="btnClearLobby" class="btn btn-xs btn-ghost text-danger" title="消去">消去</button>
+      </div>
+    </footer>
+  </div>
+
+  <div id="adjustModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>実力補正 : <span id="adjustPlayerName" style="color:var(--accent-cyan);"></span></h3>
+        <button class="modal-close" id="btnCloseAdjustModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="adjustPlayerId">
+
+        <div class="form-group">
+          <label>前回の試合の貢献度ボーナス (ハンデ調整)</label>
+          <div class="mvp-btn-group">
+            <button type="button" class="btn btn-outline mvp-select-btn" data-mvp="0">なし</button>
+            <button type="button" class="btn btn-outline mvp-select-btn" data-mvp="50">🔥 対戦MVP</button>
+            <button type="button" class="btn btn-outline mvp-select-btn" data-mvp="100">👑 大キャリー</button>
+          </div>
+          <p class="help-text">前回強かったプレイヤーにハンデを与えて、次の試合のチームバランスを調整できます。</p>
+        </div>
+
+        <div class="form-group">
+          <label for="inputCustomAdjustment">カスタム補正 (-500pt 〜 +500pt)</label>
+          <input type="number" id="inputCustomAdjustment" step="25" min="-500" max="500" value="0">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btnCancelAdjust">キャンセル</button>
+        <button class="btn btn-primary" id="btnSaveAdjust">決定</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rankPickerPopover" class="picker-popover hidden">
+    <div class="picker-header">ランクを選択</div>
+    <div class="rank-picker-grid" id="rankPickerGrid">
+    </div>
+  </div>
+
+  <div id="rolePickerPopover" class="picker-popover hidden">
+    <div class="picker-header">ロールを選択</div>
+    <div class="role-picker-list" id="rolePickerList">
+    </div>
+  </div>
+
+  <div id="compareModal" class="modal-backdrop hidden">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <h3>全候補一覧</h3>
+        <button class="modal-close" id="btnCloseCompareModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="compareListContainer" class="compare-list-container">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btnCloseCompareBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bulkModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>一括登録 </h3>
+        <button class="modal-close" id="btnCloseBulkModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="help-text">
+          形式 : プレイヤー名 ランク ロール 補正値<br>
+          例 :　ジェット　imo1　デュエリスト<br>
+        </p>
+        <textarea id="bulkTextarea" rows="10"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btnCancelBulk">キャンセル</button>
+        <button class="btn btn-primary" id="btnApplyBulk">一括追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="exportModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>メンバー保存 (一括登録用テキスト)</h3>
+        <button class="modal-close" id="btnCloseExportModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="help-text">
+          現在のプレイヤー構成をテキスト形式で出力しました。<br>
+          「📋 コピーする」をクリックして保存ができます。<br>
+          復元時は「一括登録」にそのまま貼り付けて追加をすることができます。
+        </p>
+        <textarea id="exportTextarea" rows="10" readonly></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btnCloseExportBtn">閉じる</button>
+        <button class="btn btn-primary" id="btnCopyExportText">📋 コピーする</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="teamCountChoiceModal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3>チーム分け方法の選択</h3>
+        <button class="modal-close" id="btnCloseChoiceModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="choiceModalDesc"
+          style="margin-bottom: 18px; font-size: 13.5px; line-height: 1.6; color: var(--text-main);">
+          現在のアタッカー・ディフェンダーは <strong id="choiceActiveCount">8</strong> 人です。<br>
+          観戦者からランダムで選出して10人でチーム分けを行いますか？今の人数のままでチーム分けを行いますか？
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="btnChoiceFillSpectators" class="btn btn-primary"
+            style="justify-content: center; padding: 12px; font-size: 13.5px;">
+            観戦者からランダム選出して10人でチーム分け
+          </button>
+          <button id="btnChoiceCurrentCount" class="btn btn-outline"
+            style="justify-content: center; padding: 12px; font-size: 13.5px;">
+            今の人数のままでチーム分けを行う (<span id="choiceCurrentCountLabel">8人</span>)
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button class="btn btn-ghost" id="btnCancelChoiceModal">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width: 420px; text-align: center;">
+      <div class="modal-header" style="justify-content: center; border-bottom: none; padding-bottom: 0;">
+        <h3 id="confirmModalTitle">確認</h3>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p id="confirmModalMessage" style="font-size: 14px; color: var(--text-main); line-height: 1.6;"></p>
+      </div>
+      <div class="modal-footer" style="justify-content: center; gap: 12px; border-top: none; padding-top: 0;">
+        <button class="btn btn-ghost" id="btnConfirmCancel">キャンセル</button>
+        <button class="btn btn-primary" id="btnConfirmOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js?v=20261007_06"></script>
+</body>
+
+</html>
